@@ -4,7 +4,7 @@ services:
     env_file: .env
     environment:
       DATABASE_URL: postgres://anime:anime@postgres:5432/anime_platform
-      LOG_DATABASE_URL: postgres://anime:anime@postgres:5432/anime_platform
+      LOG_DATABASE_URL: postgres://anime:anime@postgres:5432/anime_logs
       REDIS_URL: redis://redis:6379
       MINIO_ENDPOINT: minio
     depends_on:

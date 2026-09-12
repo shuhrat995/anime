@@ -25,6 +25,8 @@ type AuthContextValue = {
   request: <T>(path: string, init?: RequestInit) => Promise<T>;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, displayName: string) => Promise<void>;
+  verifyEmail: (token: string) => Promise<void>;
+  resendVerification: () => Promise<void>;
   logout: () => Promise<void>;
   updateProfile: (displayName: string) => Promise<User>;
   uploadAvatar: (file: File) => Promise<User>;
@@ -120,6 +122,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [setAuthenticated],
   );
 
+  const verifyEmail = useCallback(
+    async (token: string) => {
+      await apiFetch("/auth/verify-email", {
+        method: "POST",
+        body: JSON.stringify({ token }),
+      });
+      const active = sessionRef.current;
+      if (active) saveSession({ ...active, user: { ...active.user, emailVerified: true } });
+    },
+    [saveSession],
+  );
+
+  const resendVerification = useCallback(async () => {
+    await apiFetch("/auth/resend-verification", { method: "POST", body: "{}" }, sessionRef.current?.tokens.accessToken);
+  }, []);
+
   const logout = useCallback(async () => {
     const active = sessionRef.current;
     try {
@@ -162,6 +180,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         request,
         login,
         register,
+        verifyEmail,
+        resendVerification,
         logout,
         updateProfile,
         uploadAvatar,

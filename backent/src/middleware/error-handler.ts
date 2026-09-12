@@ -6,7 +6,7 @@ import { logger } from '../services/logger.service.js';
 export const notFoundHandler: RequestHandler = (req, _res, next) =>
   next(new AppError(404, 'NOT_FOUND', `Route ${req.method} ${req.originalUrl} was not found`));
 
-export const errorHandler: ErrorRequestHandler = (error, req, res, _next) => {
+export const errorHandler: ErrorRequestHandler = (error, req, res) => {
   console.error('🔥 REAL ERROR:', error);
   const appError = error instanceof AppError
     ? error

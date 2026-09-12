@@ -1,8 +1,8 @@
 import { Pool, type PoolClient, type QueryResultRow } from 'pg';
 import { env } from '../config/env.js';
 
-const buildPool = (connectionString: string) =>
-  new Pool({
+const buildPool = (connectionString: string) => {
+  const pool = new Pool({
     connectionString,
     max: 20,
     idleTimeoutMillis: 30_000,
@@ -11,6 +11,14 @@ const buildPool = (connectionString: string) =>
     // ?sslmode=require). The internal Docker Postgres serves plaintext on a private network, so default off.
     ssl: /sslmode=(require|verify-ca|verify-full)/.test(connectionString) ? { rejectUnauthorized: false } : undefined,
   });
+  // A background/idle client failure emits a pool-level 'error' event; with no listener it would
+  // crash the whole process whenever the database blips. Keep the API alive — requests then fail
+  // individually with 503-style errors instead of taking the service down.
+  pool.on('error', (error) => {
+    process.stderr.write(`Database pool error: ${error instanceof Error ? error.message : String(error)}\n`);
+  });
+  return pool;
+};
 
 export const db = buildPool(env.databaseUrl);
 export const logDb = buildPool(env.logDatabaseUrl);

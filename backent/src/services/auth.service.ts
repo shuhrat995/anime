@@ -1,9 +1,11 @@
 import argon2 from 'argon2';
 import jwt, { type JwtPayload, type SignOptions } from 'jsonwebtoken';
-import { conflict, unauthorized } from '../errors/app-error.js';
+import { conflict, unauthorized, verificationTokenInvalid } from '../errors/app-error.js';
 import type { AuthUser, Role } from '../core/types.js';
 import { env } from '../config/env.js';
 import { UserRepository, type UserRow } from '../repositories/user.repository.js';
+import { verificationRepository } from '../repositories/verification.repository.js';
+import { sendVerificationEmail } from './mailer.service.js';
 
 interface TokenPayload extends JwtPayload {
   sub: string;
@@ -21,6 +23,7 @@ const publicUser = (user: UserRow) => ({
   role: user.role,
   displayName: user.display_name,
   avatarKey: user.avatar_key,
+  emailVerified: user.email_verified,
   createdAt: user.created_at,
 });
 
@@ -29,6 +32,8 @@ export class AuthService {
     if (await users.findByEmail(input.email)) throw conflict('An account with that email already exists');
     const passwordHash = await argon2.hash(input.password, argonOptions);
     const user = await users.create({ email: input.email, passwordHash, displayName: input.displayName });
+    // Fire-and-forget delivery: registration must not fail because the console/SMTP write does.
+    void sendVerificationEmail(user.email, await verificationRepository.issue(user.id, 'signup'), user.display_name);
     return { user: publicUser(user), tokens: this.issueTokens(user) };
   }
 
@@ -38,6 +43,21 @@ export class AuthService {
       throw unauthorized('Invalid email or password');
     }
     return { user: publicUser(user), tokens: this.issueTokens(user) };
+  }
+
+  async verifyEmail(token: string): Promise<void> {
+    const consumed = await verificationRepository.consume(token);
+    if (!consumed) throw verificationTokenInvalid();
+    const verified = await users.markEmailVerified(consumed.userId);
+    if (!verified) throw verificationTokenInvalid();
+  }
+
+  async resendVerificationEmail(userId: string): Promise<void> {
+    const user = await users.findById(userId);
+    if (!user || !user.is_active) throw unauthorized('Account is unavailable');
+    if (user.email_verified) return;
+    await verificationRepository.deleteForUser(user.id);
+    void sendVerificationEmail(user.email, await verificationRepository.issue(user.id, 'signup'), user.display_name);
   }
 
   async getProfile(id: string) {

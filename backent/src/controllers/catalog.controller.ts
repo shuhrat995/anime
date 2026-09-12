@@ -7,8 +7,6 @@ import { toSlug } from '../utils/slug.js';
 import { logger } from '../services/logger.service.js';
 import {
   getString,
-  getOptionalString,
-  getNumber,
 } from '../utils/request.js';
 
 type Handler = RequestHandler<Record<string, string>>;

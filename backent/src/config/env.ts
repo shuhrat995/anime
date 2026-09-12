@@ -1,9 +1,14 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
 import Joi from 'joi';
+
+// .env is the source of truth for local runs. Without `override`, stray machine-wide
+// variables (e.g. a global PORT=0 on some Windows setups) silently hijack values that
+// are plainly set in .env — the server would then bind to a random port.
+dotenv.config({ override: true });
 
 const schema = Joi.object({
   NODE_ENV: Joi.string().valid('development', 'test', 'production').default('development'),
-  PORT: Joi.number().port().default(3000),
+  PORT: Joi.number().port().min(1).default(3000),
   API_PREFIX: Joi.string().pattern(/^\//).default('/api/v1'),
   DATABASE_URL: Joi.string().uri({ scheme: ['postgres', 'postgresql'] }).required(),
   LOG_DATABASE_URL: Joi.string().uri({ scheme: ['postgres', 'postgresql'] }).required(),

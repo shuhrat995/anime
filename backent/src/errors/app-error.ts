@@ -25,3 +25,5 @@ export const notFound = (resource = 'Resource') => new AppError(404, 'NOT_FOUND'
 export const conflict = (message: string) => new AppError(409, 'CONFLICT', message);
 export const validationError = (details: unknown) =>
   new AppError(422, 'VALIDATION_ERROR', 'Validation failed', details);
+export const verificationTokenInvalid = () =>
+  new AppError(400, 'VERIFICATION_TOKEN_INVALID', 'Tasdiqlash havolasi yaroqsiz yoki muddati tugagan');

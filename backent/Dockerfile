@@ -11,6 +11,8 @@ WORKDIR /app
 ENV NODE_ENV=production
 COPY package*.json ./
 RUN npm ci --omit=dev
+# Compiled JS plus the SQL migrations it loads from import.meta.dirname at runtime.
 COPY --from=build /app/dist ./dist
 EXPOSE 3000
-CMD ["node", "dist/server.js"]
+# Apply schema + logging migrations before booting; the API 503s on /health/ready until they exist.
+CMD ["sh", "-c", "node dist/database/migrate.js && node dist/database/logging-migrate.js && node dist/server.js"]

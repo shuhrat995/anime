@@ -1,6 +1,5 @@
 import { createHash } from 'node:crypto';
 import { Transform, type Readable } from 'node:stream';
-import type { Entry } from 'yauzl';
 import { badRequest, forbidden, notFound } from '../errors/app-error.js';
 import type { AuthUser } from '../core/types.js';
 import { accessRepository } from '../repositories/access.repository.js';
@@ -10,7 +9,6 @@ import type { PlaybackClaims } from './playback.service.js';
 import { storage } from '../storage/index.js';
 import { enqueueMediaDeletion } from '../workers/media-cleanup.queue.js';
 import { streamZipEntries, validateEpisodePackage } from '../media/package-validator.js';
-import { logger } from './logger.service.js';
 
 const episodes = new EpisodeRepository();
 const anime = new AnimeRepository();

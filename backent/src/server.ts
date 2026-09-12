@@ -2,7 +2,7 @@ import { createServer } from 'node:http';
 import { env } from './config/env.js';
 import { createApp } from './app.js';
 import { closeDatabases } from './database/pool.js';
-import { closeRedis, redis } from './redis/client.js';
+import { closeRedis } from './redis/client.js';
 import { logger } from './services/logger.service.js';
 import { storage } from './storage/index.js';
 import { startMediaCleanupWorker, stopMediaCleanupWorker } from './workers/media-cleanup.worker.js';

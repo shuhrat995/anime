@@ -11,8 +11,6 @@ import { EpisodeRepository } from '../repositories/episode.repository.js';
 import { logger } from '../services/logger.service.js';
 import {
   getString,
-  getOptionalString,
-  getNumber,
 } from '../utils/request.js';
 
 type Handler = RequestHandler<Record<string, string>>;

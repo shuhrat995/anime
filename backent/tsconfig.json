@@ -14,6 +14,8 @@
     "resolveJsonModule": true,
     "sourceMap": true
   },
-  "include": ["src/**/*.ts", "tests/**/*.ts"],
+  // Build scope only (rootDir=src). Test files are type-run by vitest directly and are
+  // linted separately, so including them here would break `tsc` emit with rootDir set.
+  "include": ["src/**/*.ts"],
   "exclude": ["dist", "node_modules"]
 }

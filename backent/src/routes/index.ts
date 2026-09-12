@@ -48,8 +48,10 @@ const packageUpload = multer({
 export const createApiRouter = (): Router => {
   const router = express.Router();
 
-  router.post('/auth/register', rateLimit('register', 5, 3600), validate({ body: Joi.object({ email: Joi.string().email().max(320).required(), password: Joi.string().min(12).max(128).required(), displayName: nonEmpty.max(100).required() }) }), auth.register);
-  router.post('/auth/login', rateLimit('login', 10, 900), validate({ body: Joi.object({ email: Joi.string().email().max(320).required(), password: Joi.string().max(128).required() }) }), auth.login);
+  router.post('/auth/register', rateLimit('register', process.env.NODE_ENV === 'production' ? 5 : 50, 3600), validate({ body: Joi.object({ email: Joi.string().email().max(320).required(), password: Joi.string().min(12).max(128).required(), displayName: nonEmpty.max(100).required() }) }), auth.register);
+  router.post('/auth/login', rateLimit('login', process.env.NODE_ENV === 'production' ? 10 : 50, 900), validate({ body: Joi.object({ email: Joi.string().email().max(320).required(), password: Joi.string().max(128).required() }) }), auth.login);
+  router.post('/auth/verify-email', rateLimit('verify-email', 20, 3600), validate({ body: Joi.object({ token: Joi.string().hex().length(64).required() }) }), auth.verifyEmail);
+  router.post('/auth/resend-verification', authenticate, rateLimit('resend-verification', 5, 3600), validate({ body: Joi.object({}) }), auth.resendVerification);
   router.post('/auth/refresh', rateLimit('refresh', 30, 900), validate({ body: Joi.object({ refreshToken: Joi.string().min(20).required() }) }), auth.refresh);
   router.post('/auth/logout', authenticate, validate({ body: Joi.object({}) }), auth.logout);
 

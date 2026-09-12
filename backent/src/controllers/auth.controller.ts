@@ -16,6 +16,18 @@ export const login: RequestHandler = asyncHandler(async (req, res) => {
   success(res, result, 'Login successful');
 });
 
+export const verifyEmail: RequestHandler = asyncHandler(async (req, res) => {
+  await authService.verifyEmail(req.body.token);
+  await logger.audit('auth.email.verified', 'Email verified', req);
+  success(res, { verified: true }, 'Email tasdiqlandi');
+});
+
+export const resendVerification: RequestHandler = asyncHandler(async (req, res) => {
+  await authService.resendVerificationEmail(req.auth!.id);
+  await logger.audit('auth.email.resent', 'Verification email re-sent', req);
+  success(res, { sent: true }, 'Tasdiqlash havolasi qayta yuborildi');
+});
+
 export const refresh: RequestHandler = asyncHandler(async (req, res) => {
   success(res, await authService.refresh(req.body.refreshToken), 'Token refreshed');
 });

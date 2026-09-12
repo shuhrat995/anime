@@ -13,6 +13,7 @@ export type User = {
   role: "user" | "dubber" | "admin";
   displayName: string;
   avatarKey: string | null;
+  emailVerified: boolean;
   createdAt: string;
 };
 
