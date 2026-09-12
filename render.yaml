@@ -1,0 +1,70 @@
+# Render Blueprint — Zenith backend (Express + Postgres + Redis + MinIO/S3)
+#
+# Ishlatish:
+#   1. GitHub'dagi shu repoga push qilingan bo'lishi kerak (main branch).
+#   2. https://dashboard.render.com → New → Blueprint → shu reponi tanlang.
+#   3. Render render.yaml ni o'qiydi va API + Key Value (Redis) xizmatlarini yaratadi.
+#   4. Postgres uchun: New → Postgres (free plan) → ichki connection string'ni
+#      API service'ining DATABASE_URL / LOG_DATABASE_URL env'lariga qo'ying
+#      (yoki quyidagi syncChanges izohidagidek render.yaml ga qo'shing).
+#
+# MinIO o'rniga bulutda S3-mos storage kerak (Cloudflare R2 / Backblaze B2 /
+# AWS S3) — S3_ env'lari bilan ulanadi (STORAGE_PROVIDER=s3).
+
+services:
+  - type: web
+    name: zenith-api
+    runtime: docker
+    dockerfilePath: ./backent/Dockerfile
+    dockerContext: ./backent
+    plan: free
+    healthCheckPath: /health
+    region: frankfurt
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: API_PREFIX
+        value: /api/v1
+      - key: DATABASE_URL
+        sync: false   # Render Postgres ichki connection string'i qo'lda kiritiladi
+      - key: LOG_DATABASE_URL
+        sync: false   # odatda DATABASE_URL bilan bir xil (yoki alohida logs bazasi)
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: zenith-redis
+          property: connectionString
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_ACCESS_TTL
+        value: 15m
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_TTL
+        value: 30d
+      # Netlify domeningizni vergul bilan qo'shing (trailing slash'siz):
+      # masalan: https://sevimli-anime.netlify.app,http://localhost:3001
+      - key: CORS_ORIGINS
+        sync: false
+      - key: STORAGE_PROVIDER
+        value: s3
+      - key: S3_REGION
+        value: auto
+      - key: S3_BUCKET
+        sync: false
+      - key: S3_ENDPOINT
+        sync: false   # R2: https://<accountid>.r2.cloudflarestorage.com
+      - key: S3_ACCESS_KEY_ID
+        sync: false
+      - key: S3_SECRET_ACCESS_KEY
+        sync: false
+      - key: MAX_PACKAGE_SIZE_MB
+        value: 2048
+      - key: LOG_LEVEL
+        value: info
+
+  - type: keyvalue
+    name: zenith-redis
+    plan: free
+    region: frankfurt
+    maxmemoryPolicy: noeviction

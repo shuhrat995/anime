@@ -1,0 +1,40 @@
+# Netlify sozlamalari — Zenith frontend (Next.js 16)
+#
+# /api/v1/* so'rovlari tashqi backend'ga PROKSI qilinadi (status 200 — HTTP
+# redirect emas, shuning uchun POST/PUT tanalari va headerlar saqlanadi).
+# Brauzer uchun hamma so'rov same-origin qoladi — CORS sozlash shart emas.
+#
+# ⚠️ MUHIM: "REPLACE-WITH-YOUR-BACKEND" o'rniga haqiqiy backend manzilingizni
+#    yozing (masalan Render: https://anime-api.onrender.com).
+#    Ikki joyda almashtirish kerak: [build.environment] va [[redirects]].
+
+[build]
+  base = "frontend"
+  command = "npm run build"
+  publish = "frontend/.next"
+
+[build.environment]
+  NODE_VERSION = "22"
+  # next.config.ts dagi rewrites build paytida shu manzilga yo'naladi
+  # (BACKEND_ORIGIN bo'lmasa lokal 127.0.0.1:3000 ga qaraydi — Netlify'da bu ishlamaydi).
+  BACKEND_ORIGIN = "https://REPLACE-WITH-YOUR-BACKEND.example.com"
+  # Brauzer API so'rovlarini same-origin (/api/v1) ga yuboradi — yuqoridagi redirect
+  # ularni backend'ga proksi qiladi. Agar backend'ni to'g'ridan-to'g'ri (proxy'siz)
+  # chaqirmoqchi bo'lsangiz, shu o'zgaruvchini to'liq backend manziliga o'zgartiring
+  # va backend'dagi CORS_ORIGINS ga Netlify domeningizni qo'shing.
+  NEXT_PUBLIC_API_URL = "/api/v1"
+
+# Force: Netlify funksiyalaridan ham OLDIN ishlaydi — /api/v1 har qanday holatda
+# backend'ga yetib boradi. 200 = proxy (redirect emas), method/body saqlanadi.
+[[redirects]]
+  from = "/api/v1/:path*"
+  to = "https://REPLACE-WITH-YOUR-BACKEND.example.com/api/v1/:path*"
+  status = 200
+  force = true
+
+# "/api/v1" ning o'zi (subpathsiz) ham kelib qolsa
+[[redirects]]
+  from = "/api/v1"
+  to = "https://REPLACE-WITH-YOUR-BACKEND.example.com/api/v1"
+  status = 200
+  force = true
