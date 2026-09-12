@@ -1,115 +1,100 @@
-# 🚀 Deploy qo'llanmasi — Render (backend) + Netlify (frontend)
+# 🚀 Deploy qo'llanmasi — Vercel (frontend) + Neon (Postgres) + Upstash (Redis)
 
-Bu qo'llanma saytni internetga chiqaradi: **backend Render'da**, **frontend Netlify'da** ishlaydi, `/api/v1` so'rovlar Netlify'dan Render'ga proksi qilinadi.
+Sayt arxitekturasi: **frontend Vercel'da**, `/api/v1` so'rovlar Next.js rewrites orqali backend'ga proksi qilinadi, bazalar bulutda bepul xizmatlarda turadi.
+
+```
+Brauzer ──► Vercel (Next.js frontend + /api/v1 proxy)
+                 │  rewrites (next.config.ts)
+                 ▼
+            Backend API (hozircha sizning PC'da: http://127.0.0.1:3000)
+                 │                │
+          Neon (Postgres)    Upstash (Redis)
+                 │
+          S3-mos storage (Cloudflare R2) — video/subtitle fayllar
+```
+
+> Backend API'ni ham bulutga ko'chirmoqchi bo'lsangiz: Dockerfile repo ildizida tayyor (Koyeb/Back4app/VPS uchun). Hozirgi qo'llanma frontend'ni Vercel'ga chiqarish uchun.
 
 ---
 
-## 1-qadam: Kodni GitHub'ga push qiling
+## 1-qadam: Neon — bepul Postgres
 
-```bash
-git add -A
-git commit -m "Deploy config"
-git push origin main
-```
+1. https://neon.com → GitHub bilan ro'yxatdan o'ting (karta kerak emas)
+2. **Create project** → region: yaqin (Frankfurt/AWS)
+3. Dashboard'da **Connection string** ni nusxalang:
+   `postgresql://user:pass@ep-xxx-pooler.region.aws.neon.tech/neondb?sslmode=require`
 
-## 2-qadam: Render'da backend'ni ishga tushirish
+## 2-qadam: Upstash — bepul Redis
 
-### 2.1. Postgres bazasi (free)
-1. https://dashboard.render.com → **New → Postgres**
-2. Nom: `zenith-db`, Plan: **Free**, Region: **Frankfurt**
-3. Yaratilgach, ichida **"Connect"** tugmasi → **Internal Database URL** ni nusxalang
-   (`postgres://...render-prod...render.com/anime_platform` shaklida). Bu `DATABASE_URL`.
+1. https://upstash.com → GitHub bilan ro'yxatdan o'ting (karta kerak emas)
+2. **Create database** → region: yaqin, **Eviction: o'chirilgan** bo'lsin
+3. Database sahifasidan **REST'a emas, "Connect → Node.js"** dagi URL kerak:
+   `rediss://default:xxxx@xxx.upstash.io:6379` — shuni nusxalang
 
-> Eslatma: free Postgres **30 kundan keyin o'chadi** — doimiy ishlatish uchun eng arzon pullik plan ($6/oy) kerak.
+## 3-qadam: Vercel — frontend
 
-### 2.2. Blueprint orqali API + Redis
-1. **New → Blueprint** → shu reponi (`shuhrat995/anime`) tanlang
-2. Render ildizdagi `render.yaml` ni o'qiydi:
-   - `zenith-api` (Docker, `backent/Dockerfile`)
-   - `zenith-redis` (Key Value, free)
-3. **Apply** bosing. Birinchi deploy ~5 daqiqa.
-4. Deploy xatolik berishi mumkin, chunki hali env'lar to'lmagan — `zenith-api` → **Environment** bo'limiga o'tib quyidagilarni to'ldiring:
+1. https://vercel.com → **Add New → Project** → `shuhrat995/anime` reponi import qiling
+2. Sozlamalar:
+   - **Framework Preset:** Next.js (avtomatik)
+   - **Root Directory:** `frontend` → Edit → `frontend` deb yozing
+   - Build command / install: avtomatik qoladi
+3. **Environment Variables** bo'limiga quyidagilarni qo'shing:
 
-| Key | Qiymat |
-|---|---|
-| `DATABASE_URL` | 2.1 dan olingan Internal Database URL |
-| `LOG_DATABASE_URL` | xuddi shu URL (bir xil bazada `application_logs` jadvali yaratiladi) |
-| `CORS_ORIGINS` | `https://SIZNING-SAYT.netlify.app,http://localhost:3001` |
-| `S3_BUCKET` | R2/B2/S3 bucket nomingiz |
-| `S3_ENDPOINT` | R2: `https://<accountid>.r2.cloudflarestorage.com` |
-| `S3_ACCESS_KEY_ID` | storage access key |
-| `S3_SECRET_ACCESS_KEY` | storage secret key |
+| Key | Qiymat | Izoh |
+|---|---|---|
+| `BACKEND_ORIGIN` | backend manzilingiz (masalan `http://IP:3000` yoki tunnel URL) | bo'lmasa lokal `127.0.0.1:3000` ishlatiladi |
+| `NEXT_PUBLIC_API_URL` | `/api/v1` | brauzer same-origin so'rov yuboradi (CORS yo'q) |
 
-5. **Save** → avtomatik qayta deploy. Tayyor: `https://zenith-api-xxxx.onrender.com/health` → `{"success":true}` qaytarsa ✅
+4. **Deploy** bosing (birinchi build ~2-3 daqiqa)
 
-> Migratsiyalar avtomatik: Dockerfile'dagi CMD har startda `migrate.js` va `logging-migrate.js` ni ishga tushiradi.
+## 4-qadam: Backend'ni Vercel saytiga ulash
 
-> ⚠️ Free plan'da servis 15 daqiqa harakatsizlikdan keyin "uxlaydi" — birinchi so'rov 30–60 soniya kechikadi.
+Vercel rewrites **serverda** ishlaydi — backend manzili erkin (HTTP ham bo'ladi, CORS so'ralmaydi):
 
-### 2.3. Media storage (video fayllar)
-Video paketlar S3-mos storage'ga yuklanadi. **Cloudflare R2** tavsiya etaman (efirga chiqish trafiki bepul):
-1. Cloudflare Dashboard → R2 → bucket yarating (`zenith-media`)
-2. R2 → Manage API Tokens → Object Read & Write token yarating
-3. Token'dagi `Access Key ID`, `Secret`, `Endpoint` ni Render env'lariga yozing (yuqoridagi jadval)
+- **Backend sizning PC'da bo'lsa:** internetga ochish kerak (masalan Cloudflare Tunnel: `cloudflared tunnel --url http://127.0.0.1:3000` → berilgan `https://xxx.trycloudflare.com` ni `BACKEND_ORIGIN` qilib Vercel'da yangilang)
+- **VPS bo'lsa:** `http://VPS-IP:3000` ni yozing
 
-## 3-qadam: Netlify'da frontend
+Backend `.env` da esa `CORS_ORIGINS` ga Vercel domeningizni qo'shing (agar biror joyda to'g'ridan-to'g'ri brauzer so'rovlari bo'lsa):
+`CORS_ORIGINS=https://sizning-sayt.vercel.app,http://localhost:3001`
 
-1. https://app.netlify.com → **Add new site → Import an existing project** → `shuhrat995/anime`
-2. Sozlamalar (yoki ildizdagi `netlify.toml` dan avtomatik o'qiydi):
-   - Base directory: `frontend`
-   - Build command: `npm run build`
-   - **Environment variables:**
-
-| Key | Qiymat |
-|---|---|
-| `BACKEND_ORIGIN` | `https://zenith-api-xxxx.onrender.com` (2.2 dagi URL) |
-| `NEXT_PUBLIC_API_URL` | `/api/v1` |
-
-3. **Deploy**
-
-## 4-qadam: `netlify.toml` dagi manzilni almashtirish
-
-Repodagi `netlify.toml` faylida `REPLACE-WITH-YOUR-BACKEND` **2 joyda** bor — ularni 2.2 dagi haqiqiy Render URL'iga almashtiring va push qiling:
-
-```bash
-# netlify.toml ichida (2 joyda):
-https://REPLACE-WITH-YOUR-BACKEND.example.com  →  https://zenith-api-xxxx.onrender.com
-```
+Har `BACKEND_ORIGIN` o'zgarsa: Vercel → Settings → Environment Variables → yangilang → **Deployments → Redeploy**.
 
 ## 5-qadam: Tekshirish
 
 ```bash
-# 1) Backend tirikmi
-curl https://zenith-api-xxxx.onrender.com/health
+# 1) Vercel'dagi sayt tirikmi
+curl https://SIZNING-SAYT.vercel.app
 
-# 2) Netlify proxy ishlayaptimi (200 qaytishi kerak)
-curl https://SIZNING-SAYT.netlify.app/api/v1/health
+# 2) Proxy backend'ga yetib borayaptimi (200 qaytishi kerak)
+curl https://SIZNING-SAYT.vercel.app/api/v1/health
 
-# 3) Brauzerda saytni ochib registratsiyadan o'tib ko'ring
+# 3) Brauzerda registratsiyadan o'tib ko'ring
 ```
 
-Birinchi registratsiyadan keyin **Render → zenith-api → Logs** ichida `📧 DEV MAIL` blokida email tasdiqlash havolasi chiqadi (SMTP ulanguncha shunday ishlaydi).
+Birinchi registratsiyadan keyin **backend konsolida** `📧 DEV MAIL` blokida email tasdiqlash havolasi chiqadi (SMTP ulanguncha shunday ishlaydi).
 
 ---
 
-## Umumiy arxitektura (deploy'dan keyin)
+## Backend env (eslatma)
 
-```
-Brauzer ──► Netlify (Next.js frontend, static+SSR)
-                 │  /api/v1/*  (proxy, status 200)
-                 ▼
-            Render (Express API, Docker)
-                 │            │
-          Postgres (Render)   Redis (Render Key Value)
-                 │
-          S3-mos storage (R2) — video/subtitle fayllar
-```
+Backend bulutga ko'chsa quyidagilar kerak bo'ladi (`backent/.env.example` da to'liq ro'yxat):
+
+| Key | Qiymat |
+|---|---|
+| `DATABASE_URL` / `LOG_DATABASE_URL` | Neon connection string (ikkalasi bir xil bo'lishi mumkin) |
+| `REDIS_URL` | Upstash `rediss://...` URL'i |
+| `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` | kamida 64 belgili tasodifiy satrlar |
+| `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY` | istalgan qiymat (video yuklamaguncha ishlatilmaydi) |
+| `CORS_ORIGINS` | `https://sizning-sayt.vercel.app` |
 
 ## Xarajatlar (minimal)
+
 | Xizmat | Plan | Narx |
 |---|---|---|
-| Netlify | Free | $0 |
-| Render API | Free | $0 (15 daq uxlash cheklovi bilan) |
-| Render Postgres | Free | $0 (30 kun) → $6/oy |
-| Render Key Value | Free | $0 (25MB) |
-| Cloudflare R2 | Free tier | $0 (10GB gacha) |
+| Vercel | Hobby | **$0** (oyiga 100GB trafik, kommerziyasiz) |
+| Neon | Free | **$0** (0.5GB, uyqu rejimi bor) |
+| Upstash | Free | **$0** (10k buyruq/kun) |
+| Backend | sizning PC / VPS | $0 / ~$4-5 oy |
+| Cloudflare R2 | Free tier | **$0** (10GB gacha) |
+
+> Pro versiya: backend doim on bo'lishi uchun arzon VPS (~$4-5/oy) eng to'g'ri yo'l — repodagi Dockerfile o'sha joyga to'g'ridan-to'g'ri mos keladi.
