@@ -15,8 +15,8 @@ services:
   - type: web
     name: zenith-api
     runtime: docker
-    dockerfilePath: ./backent/Dockerfile
-    dockerContext: ./backent
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
     plan: free
     healthCheckPath: /health
     region: frankfurt
